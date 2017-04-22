@@ -2128,8 +2128,8 @@ JL_DLLEXPORT jl_value_t *(jl_gc_alloc)(jl_ptls_t ptls, size_t sz, void *ty)
     return jl_gc_alloc_(ptls, sz, ty);
 }
 
-// Per-thread initialization (when threading is fully implemented)
-void jl_mk_thread_heap(jl_ptls_t ptls)
+// Per-thread initialization
+void jl_init_thread_heap(jl_ptls_t ptls)
 {
     jl_thread_heap_t *heap = &ptls->heap;
     jl_gc_pool_t *p = heap->norm_pools;
@@ -2151,6 +2151,11 @@ void jl_mk_thread_heap(jl_ptls_t ptls)
     arraylist_new(heap->remset, 0);
     arraylist_new(heap->last_remset, 0);
     arraylist_new(&ptls->finalizers, 0);
+
+    jl_gc_mark_cache_t *gc_cache = &ptls->gc_cache;
+    gc_cache->perm_scanned_bytes = 0;
+    gc_cache->scanned_bytes = 0;
+    gc_cache->nbig_obj = 0;
 }
 
 // System-wide initializations
