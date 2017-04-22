@@ -1603,7 +1603,7 @@ void jl_init_types(void)
     // NOTE: types should not really be mutable, but the instance and
     // struct_decl fields are basically caches, which are mutated.
     jl_datatype_type->mutabl = 1;
-    jl_datatype_type->ninitialized = 4;
+    jl_datatype_type->ninitialized = 0;
 
     jl_typename_type->name = jl_new_typename(jl_symbol("TypeName"));
     jl_typename_type->name->wrapper = (jl_value_t*)jl_typename_type;

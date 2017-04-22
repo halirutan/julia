@@ -79,7 +79,7 @@ jl_datatype_t *jl_new_abstracttype(jl_value_t *name, jl_datatype_t *super, jl_sv
     return jl_new_datatype((jl_sym_t*)name, super, parameters, jl_emptysvec, jl_emptysvec, 1, 0, 0);
 }
 
-jl_datatype_t *jl_new_uninitialized_datatype(void)
+JL_DLLEXPORT jl_datatype_t *jl_new_uninitialized_datatype(void)
 {
     jl_ptls_t ptls = jl_get_ptls_states();
     jl_datatype_t *t = (jl_datatype_t*)jl_gc_alloc(ptls, sizeof(jl_datatype_t), jl_datatype_type);
@@ -87,6 +87,7 @@ jl_datatype_t *jl_new_uninitialized_datatype(void)
     t->hasfreetypevars = 0;
     t->isleaftype = 1;
     t->layout = NULL;
+    t->name = NULL;
     return t;
 }
 
@@ -300,33 +301,15 @@ void jl_compute_field_offsets(jl_datatype_t *st)
 
 extern int jl_boot_file_loaded;
 
-JL_DLLEXPORT jl_datatype_t *jl_new_datatype(jl_sym_t *name, jl_datatype_t *super,
-                                            jl_svec_t *parameters,
-                                            jl_svec_t *fnames, jl_svec_t *ftypes,
-                                            int abstract, int mutabl,
-                                            int ninitialized)
+JL_DLLEXPORT void jl_new_datatype_in(jl_sym_t *name, jl_datatype_t *super,
+				     jl_svec_t *parameters, jl_svec_t *fnames,
+				     jl_svec_t *ftypes, int abstract, int mutabl,
+				     int ninitialized, jl_datatype_t *t)
 {
     jl_ptls_t ptls = jl_get_ptls_states();
-    jl_datatype_t *t=NULL;
-    jl_typename_t *tn=NULL;
-    JL_GC_PUSH2(&t, &tn);
+    jl_typename_t *tn=t->name;
+    JL_GC_PUSH1(&tn);
 
-    if (!jl_boot_file_loaded && jl_is_symbol(name)) {
-        // hack to avoid making two versions of basic types needed
-        // during bootstrapping
-        if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Int32"))
-            t = jl_int32_type;
-        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Int64"))
-            t = jl_int64_type;
-        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Bool"))
-            t = jl_bool_type;
-        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "UInt8"))
-            t = jl_uint8_type;
-    }
-    if (t == NULL)
-        t = jl_new_uninitialized_datatype();
-    else
-        tn = t->name;
     // init before possibly calling jl_new_typename
     t->super = super;
     if (super != NULL) jl_gc_wb(t, t->super);
@@ -385,6 +368,32 @@ JL_DLLEXPORT jl_datatype_t *jl_new_datatype(jl_sym_t *name, jl_datatype_t *super
                 jl_compute_field_offsets(t);
         }
     }
+    JL_GC_POP();
+}
+
+JL_DLLEXPORT jl_datatype_t *jl_new_datatype(jl_sym_t *name, jl_datatype_t *super,
+					    jl_svec_t *parameters, jl_svec_t *fnames,
+					    jl_svec_t *ftypes, int abstract, int mutabl,
+					    int ninitialized)
+{
+    jl_datatype_t *t=NULL;
+    JL_GC_PUSH1(&t);
+    if (!jl_boot_file_loaded && jl_is_symbol(name)) {
+        // hack to avoid making two versions of basic types needed
+        // during bootstrapping
+        if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Int32"))
+            t = jl_int32_type;
+        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Int64"))
+            t = jl_int64_type;
+        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "Bool"))
+            t = jl_bool_type;
+        else if (!strcmp(jl_symbol_name((jl_sym_t*)name), "UInt8"))
+            t = jl_uint8_type;
+    }
+    if (t == NULL)
+        t = jl_new_uninitialized_datatype();
+    jl_new_datatype_in(name, super, parameters, fnames, ftypes,
+		       abstract, mutabl, ninitialized, t);
     JL_GC_POP();
     return t;
 }
